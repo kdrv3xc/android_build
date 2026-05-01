@@ -1379,6 +1379,26 @@ def PartitionMapFromTargetFiles(target_files_dir):
       "system_dlkm": ["SYSTEM_DLKM", "SYSTEM/system_dlkm"],
   }
   partition_map = {}
+
+# --- ADD THIS ZIPFILE HANDLING BLOCK ---
+  import zipfile
+  if isinstance(target_files_dir, zipfile.ZipFile):
+    # If it's a zip archive, check the internal namelist instead of using os.path
+    namelist = target_files_dir.namelist()
+    for partition, subdirs in possible_subdirs.items():
+      for subdir in subdirs:
+        # Check if the folder exists inside the zip
+        if any(name.startswith(f"{subdir}/") for name in namelist):
+          partition_map[partition] = subdir
+          break
+    
+    # Fallback just in case, to prevent KeyErrors
+    if 'system' not in partition_map: 
+        partition_map['system'] = 'SYSTEM'
+        
+    return partition_map
+# ---------------------------------------
+
   for partition, subdirs in possible_subdirs.items():
     for subdir in subdirs:
       if os.path.exists(os.path.join(target_files_dir, subdir)):
