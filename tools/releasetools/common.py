@@ -1105,13 +1105,20 @@ class PartitionBuildProps(object):
     """
     data = ''
     partition_map = PartitionMapFromTargetFiles(input_file)
-    for prop_file in ['{}/etc/build.prop'.format(partition_map[name]),
-                      '{}/build.prop'.format(partition_map[name])]:
+
+    # Use .get() to safely check the map. Fallback to uppercase name (e.g. 'SYSTEM')
+    # if it's completely missing from the map.
+    part_dir = partition_map.get(name, name.upper())
+
+    for prop_file in ['{}/etc/build.prop'.format(part_dir),
+                      '{}/build.prop'.format(part_dir)]:
       try:
         data = ReadFromInputFile(input_file, prop_file)
         break
       except KeyError:
-        logger.warning('Failed to read %s', prop_file)
+        # This safely catches when the build.prop file itself is missing from the zip
+        pass
+
     if data == '':
       logger.warning("Failed to read build.prop for partition {}".format(name))
     return data
@@ -1372,9 +1379,7 @@ def PartitionMapFromTargetFiles(target_files_dir):
       "product": ["PRODUCT", "SYSTEM/product"],
       "system_ext": ["SYSTEM_EXT", "SYSTEM/system_ext"],
       "odm": ["ODM", "VENDOR/odm", "SYSTEM/vendor/odm"],
-      "vendor_dlkm": [
-          "VENDOR_DLKM", "VENDOR/vendor_dlkm", "SYSTEM/vendor/vendor_dlkm"
-      ],
+      "vendor_dlkm": ["VENDOR_DLKM", "VENDOR/vendor_dlkm", "SYSTEM/vendor/vendor_dlkm"],
       "odm_dlkm": ["ODM_DLKM", "VENDOR/odm_dlkm", "SYSTEM/vendor/odm_dlkm"],
       "system_dlkm": ["SYSTEM_DLKM", "SYSTEM/system_dlkm"],
   }
@@ -1405,7 +1410,6 @@ def PartitionMapFromTargetFiles(target_files_dir):
         partition_map[partition] = subdir
         break
   return partition_map
-
 
 def SharedUidPartitionViolations(uid_dict, partition_groups):
   """Checks for APK sharedUserIds that cross partition group boundaries.
